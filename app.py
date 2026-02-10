@@ -6,7 +6,6 @@ from sentence_transformers import SentenceTransformer
 import faiss
 import numpy as np
 from elevenlabs.client import ElevenLabs
-from elevenlabs import play
 from pypdf import PdfReader
 
 # =========================================================
@@ -20,12 +19,12 @@ st.set_page_config(page_title="Veera Enterprise AI", layout="wide")
 
 if not GROQ_API_KEY:
     st.error("❌ GROQ_API_KEY not found in .env file")
-if not ELEVENLABS_API_KEY:
-    st.warning("⚠ ELEVENLABS_API_KEY not found. Voice agent will not work.")
+    st.stop()
 
 # Initialize clients
 client = Groq(api_key=GROQ_API_KEY)
 
+eleven_client = None
 if ELEVENLABS_API_KEY:
     eleven_client = ElevenLabs(api_key=ELEVENLABS_API_KEY)
 
@@ -125,12 +124,12 @@ elif menu == "Document Agent":
             st.write(context[:500])
 
 # =========================================================
-# 3. VOICE AGENT (AUTO VOICE SELECTION)
+# 3. VOICE AGENT (STABLE VERSION)
 # =========================================================
 elif menu == "Voice Agent":
     st.header("🔊 Voice Agent")
 
-    if not ELEVENLABS_API_KEY:
+    if not eleven_client:
         st.warning("Voice agent disabled. Add ELEVENLABS_API_KEY in .env")
     else:
         text = st.text_input("Enter text to speak:")
@@ -138,15 +137,21 @@ elif menu == "Voice Agent":
         if st.button("Speak") and text:
             try:
                 voices = eleven_client.voices.get_all()
-                voice_id = voices.voices[0].voice_id  # auto-select first voice
+                voice_id = voices.voices[0].voice_id
 
                 audio = eleven_client.text_to_speech.convert(
                     text=text,
                     voice_id=voice_id,
                     model_id="eleven_monolingual_v1"
                 )
-                play(audio)
-                st.success("Audio played.")
+
+                audio_file = "output.mp3"
+                with open(audio_file, "wb") as f:
+                    f.write(audio)
+
+                st.audio(audio_file)
+                st.success("Audio generated successfully.")
+
             except Exception as e:
                 st.error(f"Voice error: {e}")
 
