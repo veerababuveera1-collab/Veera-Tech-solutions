@@ -124,7 +124,7 @@ elif menu == "Document Agent":
             st.write(context[:500])
 
 # =========================================================
-# 3. VOICE AGENT (STABLE VERSION)
+# 3. VOICE AGENT (FINAL CLOUD-SAFE VERSION)
 # =========================================================
 elif menu == "Voice Agent":
     st.header("🔊 Voice Agent")
@@ -139,17 +139,20 @@ elif menu == "Voice Agent":
                 voices = eleven_client.voices.get_all()
                 voice_id = voices.voices[0].voice_id
 
-                audio = eleven_client.text_to_speech.convert(
+                audio_generator = eleven_client.text_to_speech.convert(
                     text=text,
                     voice_id=voice_id,
                     model_id="eleven_monolingual_v1"
                 )
 
-                audio_file = "output.mp3"
-                with open(audio_file, "wb") as f:
-                    f.write(audio)
+                # Convert generator to bytes
+                audio_bytes = b""
+                for chunk in audio_generator:
+                    audio_bytes += chunk
 
-                st.audio(audio_file)
+                # Play directly in Streamlit
+                st.audio(audio_bytes, format="audio/mp3")
+
                 st.success("Audio generated successfully.")
 
             except Exception as e:
