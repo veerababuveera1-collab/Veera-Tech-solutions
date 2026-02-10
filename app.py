@@ -142,7 +142,7 @@ elif menu == "Voice Agent":
                 audio_generator = eleven_client.text_to_speech.convert(
                     text=text,
                     voice_id=voice_id,
-                    model_id="eleven_monolingual_v2"
+                    model_id="eleven_turbo_v2_5"
                 )
 
                 # Convert generator to bytes
