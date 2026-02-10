@@ -5,28 +5,27 @@ from groq import Groq
 from sentence_transformers import SentenceTransformer
 import faiss
 import numpy as np
-from elevenlabs.client import ElevenLabs
 from pypdf import PdfReader
+
+# =========================================================
+# CONFIG
+# =========================================================
+VOICE_ENABLED = False  # 🔒 Voice disabled due to ElevenLabs free-tier limits
 
 # =========================================================
 # ENVIRONMENT SETUP
 # =========================================================
 load_dotenv()
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
 
 st.set_page_config(page_title="Veera Enterprise AI", layout="wide")
 
 if not GROQ_API_KEY:
-    st.error("❌ GROQ_API_KEY not found in .env file")
+    st.error("❌ GROQ_API_KEY not found in environment / secrets")
     st.stop()
 
-# Initialize clients
+# Initialize Groq client
 client = Groq(api_key=GROQ_API_KEY)
-
-eleven_client = None
-if ELEVENLABS_API_KEY:
-    eleven_client = ElevenLabs(api_key=ELEVENLABS_API_KEY)
 
 # =========================================================
 # EMBEDDING + FAISS SETUP
@@ -36,10 +35,10 @@ def load_embedding_model():
     return SentenceTransformer("all-MiniLM-L6-v2")
 
 embed_model = load_embedding_model()
-dimension = 384
+EMBED_DIM = 384
 
 if "faiss_index" not in st.session_state:
-    st.session_state.faiss_index = faiss.IndexFlatL2(dimension)
+    st.session_state.faiss_index = faiss.IndexFlatL2(EMBED_DIM)
 
 if "documents" not in st.session_state:
     st.session_state.documents = []
@@ -47,15 +46,20 @@ if "documents" not in st.session_state:
 # =========================================================
 # MAIN UI
 # =========================================================
-st.title("🚀 Veera Enterprise AI – 4 Agent Working Demo")
+st.title("🚀 Veera Enterprise AI – 4 Agent Stable Demo")
 
 menu = st.sidebar.selectbox(
     "Select Agent",
-    ["Chat Agent", "Document Agent", "Voice Agent", "Automation Agent"]
+    [
+        "Chat Agent",
+        "Document Agent",
+        "Voice Agent",
+        "Automation Agent"
+    ]
 )
 
 # =========================================================
-# 1. CHAT AGENT
+# 1️⃣ CHAT AGENT
 # =========================================================
 if menu == "Chat Agent":
     st.header("💬 Chat Agent")
@@ -83,7 +87,7 @@ if menu == "Chat Agent":
             st.markdown(f"**🤖 AI:** {msg}")
 
 # =========================================================
-# 2. DOCUMENT AGENT
+# 2️⃣ DOCUMENT AGENT (FAISS)
 # =========================================================
 elif menu == "Document Agent":
     st.header("📄 Document Agent")
@@ -93,6 +97,7 @@ elif menu == "Document Agent":
     if uploaded:
         reader = PdfReader(uploaded)
         text = ""
+
         for page in reader.pages:
             content = page.extract_text()
             if content:
@@ -104,73 +109,55 @@ elif menu == "Document Agent":
             st.session_state.faiss_index.add(
                 np.array(emb).astype("float32")
             )
-            st.success("✅ Document indexed!")
+            st.success("✅ Document indexed successfully")
         else:
-            st.warning("⚠ Could not extract text from PDF.")
+            st.warning("⚠ Could not extract text from PDF")
 
-    query = st.text_input("Ask about document:")
+    query = st.text_input("Ask a question from documents:")
 
     if st.button("Search") and query:
-        if len(st.session_state.documents) == 0:
-            st.warning("No documents indexed.")
+        if not st.session_state.documents:
+            st.warning("No documents indexed yet")
         else:
             q_emb = embed_model.encode([query])
-            D, I = st.session_state.faiss_index.search(
+            _, idx = st.session_state.faiss_index.search(
                 np.array(q_emb).astype("float32"), k=1
             )
-
-            context = st.session_state.documents[I[0][0]]
-            st.subheader("Relevant document snippet:")
-            st.write(context[:500])
+            context = st.session_state.documents[idx[0][0]]
+            st.subheader("🔎 Relevant Content")
+            st.write(context[:600])
 
 # =========================================================
-# 3. VOICE AGENT (FINAL CLOUD-SAFE VERSION)
+# 3️⃣ VOICE AGENT (TEMPORARILY DISABLED)
 # =========================================================
 elif menu == "Voice Agent":
     st.header("🔊 Voice Agent")
 
-    if not eleven_client:
-        st.warning("Voice agent disabled. Add ELEVENLABS_API_KEY in .env")
-    else:
-        text = st.text_input("Enter text to speak:")
+    st.warning("Voice Agent is temporarily disabled.")
+    st.info(
+        "Reason: ElevenLabs Free Tier has blocked voice generation due to usage limits.\n\n"
+        "This module will be enabled once a paid plan is added or limits are restored."
+    )
 
-        if st.button("Speak") and text:
-            try:
-                voices = eleven_client.voices.get_all()
-                voice_id = voices.voices[0].voice_id
-
-                audio_generator = eleven_client.text_to_speech.convert(
-                    text=text,
-                    voice_id=voice_id,
-                    model_id="eleven_turbo_v2_5"
-                )
-
-                # Convert generator to bytes
-                audio_bytes = b""
-                for chunk in audio_generator:
-                    audio_bytes += chunk
-
-                # Play directly in Streamlit
-                st.audio(audio_bytes, format="audio/mp3")
-
-                st.success("Audio generated successfully.")
-
-            except Exception as e:
-                st.error(f"Voice error: {e}")
+    st.text_area(
+        "Text-to-Speech Preview",
+        value="Voice output is currently unavailable.",
+        disabled=True
+    )
 
 # =========================================================
-# 4. AUTOMATION AGENT
+# 4️⃣ AUTOMATION AGENT
 # =========================================================
 elif menu == "Automation Agent":
     st.header("⚙ Automation Agent")
 
-    st.write("Simple automation task simulation.")
+    st.write("Automation task simulation")
 
     if st.button("Send Email"):
-        st.success("📧 Email sent (simulated)")
+        st.success("📧 Email sent successfully (simulated)")
 
     if st.button("Generate Report"):
-        st.info("📄 Report generated (simulated)")
+        st.info("📄 Report generated successfully (simulated)")
 
     if st.button("Trigger Task"):
-        st.warning("⚙ Task triggered (simulated)")
+        st.warning("⚙ Background task triggered (simulated)")
