@@ -5,7 +5,8 @@ from groq import Groq
 from sentence_transformers import SentenceTransformer
 import faiss
 import numpy as np
-from elevenlabs import generate, play, set_api_key
+from elevenlabs.client import ElevenLabs
+from elevenlabs import play
 from pypdf import PdfReader
 
 # =========================================================
@@ -24,8 +25,9 @@ if not ELEVENLABS_API_KEY:
 
 # Initialize clients
 client = Groq(api_key=GROQ_API_KEY)
+
 if ELEVENLABS_API_KEY:
-    set_api_key(ELEVENLABS_API_KEY)
+    eleven_client = ElevenLabs(api_key=ELEVENLABS_API_KEY)
 
 # =========================================================
 # EMBEDDING + FAISS SETUP
@@ -75,7 +77,6 @@ if menu == "Chat Agent":
         reply = response.choices[0].message.content
         st.session_state.chat_history.append(("assistant", reply))
 
-    # Display chat
     for role, msg in st.session_state.chat_history:
         if role == "user":
             st.markdown(f"**🧑 You:** {msg}")
@@ -124,7 +125,7 @@ elif menu == "Document Agent":
             st.write(context[:500])
 
 # =========================================================
-# 3. VOICE AGENT
+# 3. VOICE AGENT (AUTO VOICE SELECTION)
 # =========================================================
 elif menu == "Voice Agent":
     st.header("🔊 Voice Agent")
@@ -136,7 +137,14 @@ elif menu == "Voice Agent":
 
         if st.button("Speak") and text:
             try:
-                audio = generate(text=text, voice="Rachel")
+                voices = eleven_client.voices.get_all()
+                voice_id = voices.voices[0].voice_id  # auto-select first voice
+
+                audio = eleven_client.text_to_speech.convert(
+                    text=text,
+                    voice_id=voice_id,
+                    model_id="eleven_monolingual_v1"
+                )
                 play(audio)
                 st.success("Audio played.")
             except Exception as e:
